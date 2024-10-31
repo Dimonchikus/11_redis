@@ -1,0 +1,51 @@
+version: '3'
+services:
+  redis-master:
+    image: redis:latest
+    container_name: redis-master
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-master.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+
+  redis-slave:
+    image: redis:latest
+    container_name: redis-slave
+    ports:
+      - "6380:6379"
+    environment:
+      - REDIS_REPLICA_OF=redis-master:6379
+    volumes:
+      - ./redis-slave.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+
+  redis-sentinel:
+    image: redis:latest
+    container_name: redis-sentinel
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./sentinel.conf:/usr/local/etc/redis/sentinel.conf
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+
+  app:
+    build: ./app
+    container_name: java-app
+    depends_on:
+      - redis-master
+      - redis-slave
+      - redis-sentinel
+    environment:
+      - REDIS_HOST=redis-master
+      - REDIS_PORT=6379
+    ports:
+      - "8080:8080"
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis-master:6379,redis-slave:6380
